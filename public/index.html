@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dbTODO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .bg-sidebar {
+            background-color: #1e1e1e;
+        }
+        .bg-card {
+            background-color: #252525;
+        }
+        .fc-theme-standard .fc-scrollgrid {
+            border-color: #333;
+        }
+        .fc-theme-standard td, .fc-theme-standard th {
+            border-color: #333;
+        }
+        .fc .fc-daygrid-day.fc-day-today {
+            background-color: rgba(255, 187, 0, 0.2);
+        }
+        .fc-col-header-cell {
+            background-color: #252525;
+        }
+        .fc-daygrid-day-number {
+            color: #e0e0e0;
+        }
+        .task-item:hover {
+            background-color: #2c2c2c;
+        }
+        .gradient-button {
+            background: linear-gradient(135deg, #ff9500, #ff2d55);
+        }
+        .active-item {
+            background: linear-gradient(90deg, rgba(255, 149, 0, 0.2), transparent);
+            border-left: 3px solid #ff9500;
+        }
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3d3d3d;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4d4d4d;
+        }
+        /* Modal */
+        .modal {
+            backdrop-filter: blur(5px);
+            background-color: rgba(0, 0, 0, 0.6);
+            transition: all 0.3s ease;
+        }
+        .modal-content {
+            transform: translateY(20px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        .modal.active .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        /* Theme toggle */
+        .theme-switch {
+            position: relative;
+            width: 48px;
+            height: 24px;
+        }
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #333;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background: linear-gradient(135deg, #ff9500, #ff2d55);
+        }
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+    </style>
+</head>
+<body>
+    <!-- Task Detail Modal -->
+    <div id="taskDetailModal" class="modal fixed inset-0 z-50 flex items-center justify-center hidden">
+        <div class="modal-content bg-card rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">Görev Detayları</h3>
+                <button id="closeTaskModal" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm text-gray-400 mb-1">Başlık</label>
+                <input type="text" id="modal-title" class="w-full bg-[#1e1e1e] border-none rounded-lg p-3 text-white">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm text-gray-400 mb-1">Açıklama</label>
+                <textarea id="modal-description" class="w-full bg-[#1e1e1e] border-none rounded-lg p-3 text-white h-24"></textarea>
+            </div>
+            <div class="mb-6">
+                <label class="block text-sm text-gray-400 mb-1">Bitiş Tarihi</label>
+                <input type="datetime-local" id="modal-dueDate" class="w-full bg-[#1e1e1e] border-none rounded-lg p-3 text-white">
+            </div>
+            <div class="flex space-x-3">
+                <button id="saveTaskDetail" class="flex-1 py-3 rounded-lg gradient-button text-white font-medium">
+                    Kaydet
+                </button>
+                <button id="deleteTaskDetail" class="px-4 py-3 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sol Sidebar -->
+        <div class="w-64 bg-sidebar h-screen overflow-y-auto border-r border-gray-800 flex-shrink-0">
+            <div class="p-5">
+                <div class="flex items-center space-x-3 mb-8">
+                    <div class="w-8 h-8 rounded-lg gradient-button flex items-center justify-center">
+                        <i class="fas fa-bolt text-white"></i>
+                    </div>
+                    <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-500 to-red-500">dbTODO</h1>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <h2 class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-3">Listelerim</h2>
+                        <div class="space-y-1">
+                            <div class="active-item p-3 rounded-lg flex items-center justify-between group">
+                                <div class="flex items-center">
+                                    <i class="fas fa-heart text-red-500 mr-3"></i>
+                                    <span class="text-yellow-500 font-medium">Hayat</span>
+                                </div>
+                                <span class="bg-yellow-500 text-black text-xs font-bold px-2 py-1 rounded-full">1</span>
+                            </div>
+                            <div class="p-3 rounded-lg flex items-center text-gray-400 hover:bg-gray-800 transition-colors group">
+                                <i class="fas fa-briefcase mr-3 opacity-70 group-hover:opacity-100"></i>
+                                <span>İş</span>
+                            </div>
+                            <div class="p-3 rounded-lg flex items-center text-gray-400 hover:bg-gray-800 transition-colors group">
+                                <i class="fas fa-project-diagram mr-3 opacity-70 group-hover:opacity-100"></i>
+                                <span>Proje A</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="w-full flex items-center text-gray-400 p-3 rounded-lg hover:bg-gray-800 transition-colors group">
+                        <i class="fas fa-plus mr-3 opacity-70 group-hover:opacity-100"></i>
+                        <span>Yeni Liste</span>
+                    </button>
+                    
+                    <div class="border-t border-gray-800 pt-6">
+                        <h2 class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-3">Etiketler</h2>
+                        <div class="flex flex-wrap gap-2">
+                            <span class="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs">#iş</span>
+                            <span class="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs">#kişisel</span>
+                            <span class="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs">#önemli</span>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-gray-800 pt-6">
+                        <h2 class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-3">Tema</h2>
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-400">Koyu Mod</span>
+                            <label class="theme-switch">
+                                <input type="checkbox" id="themeToggle" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ana İçerik -->
+        <div class="flex-1 flex flex-col h-screen overflow-hidden">
+            <div class="p-6 border-b border-gray-800">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <div class="text-sm text-gray-500">Feb <span class="bg-gray-700 text-white px-2 py-1 rounded ml-1">4</span></div>
+                        <h1 class="text-3xl font-bold mt-1 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">İyi Günler.</h1>
+                        <p class="text-gray-500 mt-1">Bugün için planınız nedir?</p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button class="p-2 rounded-full hover:bg-gray-800 transition-colors">
+                            <i class="fas fa-search text-gray-400"></i>
+                        </button>
+                        <button class="p-2 rounded-full hover:bg-gray-800 transition-colors">
+                            <i class="fas fa-bell text-gray-400"></i>
+                        </button>
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center">
+                            <span class="text-white font-bold">BK</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-auto p-6">
+                <!-- Todo Ekleme Formu -->
+                <form id="todoForm" class="mb-8">
+                    <div class="relative">
+                        <i class="fas fa-plus absolute left-4 top-4 text-gray-500"></i>
+                        <input type="text" id="title" name="title" placeholder="Yeni görev ekle..."
+                            class="w-full bg-card border-none rounded-xl p-4 pl-12 text-white placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 focus:outline-none shadow-lg">
+                    </div>
+                    <div class="hidden">
+                        <textarea id="description" name="description"></textarea>
+                        <input type="datetime-local" id="dueDate" name="dueDate">
+                    </div>
+                </form>
+
+                <!-- Todo Listesi Başlık -->
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-white">Görevlerim</h2>
+                    <div class="flex space-x-2">
+                        <button class="px-3 py-1.5 rounded-lg bg-card hover:bg-gray-700 transition-colors text-sm">
+                            <i class="fas fa-sort-amount-down mr-2"></i>Tarih
+                        </button>
+                        <button class="px-3 py-1.5 rounded-lg bg-card hover:bg-gray-700 transition-colors text-sm">
+                            <i class="fas fa-filter mr-2"></i>Filtre
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Todo Listesi -->
+                <div id="todoList" class="space-y-3">
+                    <!-- Görevler buraya dinamik olarak eklenecek -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Sağ Sidebar - Takvim -->
+        <div class="w-80 bg-sidebar border-l border-gray-800 h-screen overflow-y-auto flex-shrink-0">
+            <div class="p-5">
+                <h2 class="text-xl font-bold mb-4 text-white">Takvim</h2>
+                <div id="calendar" class="bg-card rounded-xl p-3 shadow-lg"></div>
+                
+                <div class="mt-8">
+                    <h3 class="text-sm font-semibold text-gray-400 mb-3 uppercase">Yaklaşan</h3>
+                    <div class="space-y-3">
+                        <div class="bg-card p-3 rounded-lg">
+                            <div class="text-xs text-yellow-500 mb-1">Bugün</div>
+                            <div class="font-medium">Toplantı notlarını gözden geçir</div>
+                        </div>
+                        <div class="bg-card p-3 rounded-lg">
+                            <div class="text-xs text-blue-500 mb-1">Yarın</div>
+                            <div class="font-medium">Proje sunumunu hazırla</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/main.js"></script>
+</body>
+</html> 
